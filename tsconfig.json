@@ -11,6 +11,7 @@
       "sourceMap": true,
       "target": "es6",
       "noImplicitAny": false,
+      "ignoreDeprecations": "5.0",
       "suppressImplicitAnyIndexErrors": true,
       "typeRoots": [
         "node_modules/@types"

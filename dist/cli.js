@@ -55,7 +55,7 @@ function main() {
                 privateKey: privateKey
             };
             console.log(`Syncing Google Drive file/folder of id '${fileFolderId}' to '${destFolder}'`);
-            yield _1.default(fileFolderId, destFolder, keyConfig);
+            yield (0, _1.default)(fileFolderId, destFolder, keyConfig);
         }
         catch (error) {
             console.log(error);

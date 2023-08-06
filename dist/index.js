@@ -13,13 +13,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.syncGDrive = void 0;
-/* eslint-disable no-console */
-const fs_extra_1 = __importDefault(require("fs-extra"));
+const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
-const util_1 = require("util");
 const googleapis_1 = require("googleapis");
 const mime_1 = __importDefault(require("mime"));
-const fsStat = util_1.promisify(fs_extra_1.default.stat);
 function sleep(timeout = 1000, value) {
     return new Promise(function (resolve, reject) {
         setTimeout(function () {
@@ -92,12 +89,17 @@ function initIOptions(options = {}) {
  * @param datetime
  */
 function timeAsSeconds(datetime) {
+    let timeInMilliseconds = 0;
     if (typeof datetime === 'string') {
-        return Date.parse(datetime) / 1000;
+        timeInMilliseconds = Date.parse(datetime);
     }
     else if (datetime instanceof Date) {
-        return datetime.getTime() / 1000;
+        timeInMilliseconds = datetime.getTime();
     }
+    else {
+        timeInMilliseconds = datetime;
+    }
+    return timeInMilliseconds / 1000;
 }
 /**
  * Checkes to see if the GDrive file is newer than the local file
@@ -108,7 +110,7 @@ function timeAsSeconds(datetime) {
 function isGDriveFileNewer(gDriveFile, filePath) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const stats = yield fsStat(filePath);
+            const stats = yield fs_1.promises.stat(filePath);
             const fsModifiedTime = timeAsSeconds(stats.mtime);
             const driveModifiedTime = timeAsSeconds(gDriveFile.modifiedTime);
             return (driveModifiedTime > fsModifiedTime);
@@ -131,7 +133,7 @@ function downloadFile(drive, file, destFolder, options = {}) {
                 options.logger.debug('downloading newer: ', filePath);
                 options.logger.debug('creating file: ', filePath);
             }
-            const dest = fs_extra_1.default.createWriteStream(filePath);
+            const dest = (0, fs_1.createWriteStream)(filePath);
             let fileId = file.id;
             if (file.shortcutDetails) {
                 fileId = file.shortcutDetails.targetId;
@@ -149,7 +151,7 @@ function downloadFile(drive, file, destFolder, options = {}) {
                     .on('error', reject)
                     .on('finish', () => {
                     // apply time stamp from the drive
-                    fs_extra_1.default.utimesSync(filePath, timeAsSeconds(file.createdTime), timeAsSeconds(file.modifiedTime));
+                    (0, fs_1.utimesSync)(filePath, timeAsSeconds(file.createdTime), timeAsSeconds(file.modifiedTime));
                     resolve({
                         file: filePath,
                         updated: true
@@ -172,7 +174,7 @@ function exportFile(drive, file, destFolder, mimeType, suffix, options = {}) {
                 options.logger.debug('downloading newer: ', filePath);
                 options.logger.debug('exporting to file: ', filePath);
             }
-            const dest = fs_extra_1.default.createWriteStream(filePath);
+            const dest = (0, fs_1.createWriteStream)(filePath);
             let fileId = file.id;
             if (file.shortcutDetails) {
                 fileId = file.shortcutDetails.targetId;
@@ -190,7 +192,7 @@ function exportFile(drive, file, destFolder, mimeType, suffix, options = {}) {
                     .on('error', reject)
                     .on('finish', () => {
                     // apply time stamp from the drive
-                    fs_extra_1.default.utimesSync(filePath, timeAsSeconds(file.createdTime), timeAsSeconds(file.modifiedTime));
+                    (0, fs_1.utimesSync)(filePath, timeAsSeconds(file.createdTime), timeAsSeconds(file.modifiedTime));
                     resolve({
                         file: filePath,
                         updated: true
@@ -234,7 +236,6 @@ function downloadContent(drive, file, path, options) {
         }
         else {
             // eslint-disable-next-line no-console
-            console.log('B>>>>', file.mimeType);
             result = yield downloadFile(drive, file, path, options);
         }
         return result;
@@ -246,10 +247,10 @@ function visitDirectory(drive, fileId, folderPath, options, callback) {
         let allSyncStates = [];
         do {
             const response = yield drive.files.list({
+                supportsAllDrives: options.supportsAllDrives,
+                includeItemsFromAllDrives: options.includeItemsFromAllDrives,
                 pageToken: nextPageToken,
-                includeRemoved: false,
                 spaces: 'drive',
-                fileId: fileId,
                 fields: 'nextPageToken, files(id, name, parents, mimeType, createdTime, modifiedTime, shortcutDetails)',
                 q: `'${fileId}' in parents`,
                 pageSize: 200
@@ -257,7 +258,6 @@ function visitDirectory(drive, fileId, folderPath, options, callback) {
             // Needed to get further results
             nextPageToken = response.data.nextPageToken;
             const files = response.data.files;
-            let syncState;
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 if (file.mimeType === 'application/vnd.google-apps.folder') {
@@ -265,18 +265,18 @@ function visitDirectory(drive, fileId, folderPath, options, callback) {
                     if (options.verbose) {
                         options.logger.debug('DIR', file.id, childFolderPath, file.name);
                     }
-                    yield fs_extra_1.default.mkdirp(childFolderPath);
+                    yield fs_1.promises.mkdir(childFolderPath, { recursive: true });
                     if (options.sleepTime) {
                         yield sleep(options.sleepTime);
                     }
-                    syncState = yield visitDirectory(drive, file.id, childFolderPath, options);
+                    const syncState = yield visitDirectory(drive, file.id, childFolderPath, options);
                     allSyncStates = allSyncStates.concat(syncState);
                 }
                 else {
                     if (options.verbose) {
                         options.logger.debug('DIR', file.id, folderPath, file.name);
                     }
-                    syncState = yield downloadContent(drive, file, folderPath, options);
+                    const syncState = yield downloadContent(drive, file, folderPath, options);
                     allSyncStates.push(syncState);
                 }
             }
@@ -289,7 +289,8 @@ function fetchContents(drive, fileId, destFolder, options) {
     return __awaiter(this, void 0, void 0, function* () {
         const response = yield drive.files.get({
             fileId: fileId,
-            fields: 'id, name, parents, mimeType, createdTime, modifiedTime'
+            fields: 'id, name, parents, mimeType, createdTime, modifiedTime',
+            supportsAllDrives: options.supportsAllDrives
         });
         const { data } = response;
         if (data.mimeType === 'application/vnd.google-apps.folder') {
