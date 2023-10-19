@@ -147,7 +147,7 @@ async function downloadFile (drive: Drive, file, destFolder: string, options: IO
 
     if (newerResults?.newer) {
         if (options.timestampReplacingFiles && newerResults?.stats && !/__syncgdriveadded--/.test(filePath)) {
-            filePath = addTimestampToFilePath(filePath, file.createdTime.toISOString())
+            filePath = addTimestampToFilePath(filePath, file.createdTime.replace(/\./g, '_'))
         }
         if (options.verbose) {
             options.logger.debug('downloading newer: ', oldFilePath);

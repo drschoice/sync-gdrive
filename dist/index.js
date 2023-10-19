@@ -139,7 +139,7 @@ function downloadFile(drive, file, destFolder, options = {}) {
         const newerResults = yield isGDriveFileNewer(file, filePath);
         if (newerResults === null || newerResults === void 0 ? void 0 : newerResults.newer) {
             if (options.timestampReplacingFiles && (newerResults === null || newerResults === void 0 ? void 0 : newerResults.stats) && !/__syncgdriveadded--/.test(filePath)) {
-                filePath = addTimestampToFilePath(filePath, file.createdTime.toISOString());
+                filePath = addTimestampToFilePath(filePath, file.createdTime.replace(/\./g, '_'));
             }
             if (options.verbose) {
                 options.logger.debug('downloading newer: ', oldFilePath);
