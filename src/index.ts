@@ -133,7 +133,6 @@ function addTimestampToFilePath(filePath: string, timestamp: any) {
     const parsed = path.parse(filePath);
     const ext = parsed.ext || '';
     const filename = parsed.name;
-    timestamp = timestamp || Date.now();
     const newFilename = `${filename}__syncgdriveadded--${timestamp}${ext}`;
     return path.format({
       ...parsed,
@@ -148,7 +147,7 @@ async function downloadFile (drive: Drive, file, destFolder: string, options: IO
 
     if (newerResults?.newer) {
         if (options.timestampReplacingFiles && newerResults?.stats && !/__syncgdriveadded--/.test(filePath)) {
-            filePath = addTimestampToFilePath(filePath, timeAsSeconds(file.createdTime))
+            filePath = addTimestampToFilePath(filePath, file.createdTime.toISOString())
         }
         if (options.verbose) {
             options.logger.debug('downloading newer: ', oldFilePath);
@@ -292,6 +291,7 @@ async function visitDirectory (drive: Drive, fileId: string, folderPath: string,
             spaces: 'drive',
             fields: 'nextPageToken, files(id, name, parents, mimeType, createdTime, modifiedTime, shortcutDetails)',
             q: `'${fileId}' in parents`,
+            orderBy: `createdTime ${options.timestampReplacingFiles ? "asc" : "desc"}`,
             pageSize: 200
         });
 

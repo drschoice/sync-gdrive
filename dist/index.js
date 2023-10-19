@@ -129,7 +129,6 @@ function addTimestampToFilePath(filePath, timestamp) {
     const parsed = path_1.default.parse(filePath);
     const ext = parsed.ext || '';
     const filename = parsed.name;
-    timestamp = timestamp || Date.now();
     const newFilename = `${filename}__syncgdriveadded--${timestamp}${ext}`;
     return path_1.default.format(Object.assign(Object.assign({}, parsed), { base: newFilename }));
 }
@@ -140,7 +139,7 @@ function downloadFile(drive, file, destFolder, options = {}) {
         const newerResults = yield isGDriveFileNewer(file, filePath);
         if (newerResults === null || newerResults === void 0 ? void 0 : newerResults.newer) {
             if (options.timestampReplacingFiles && (newerResults === null || newerResults === void 0 ? void 0 : newerResults.stats) && !/__syncgdriveadded--/.test(filePath)) {
-                filePath = addTimestampToFilePath(filePath, timeAsSeconds(file.createdTime));
+                filePath = addTimestampToFilePath(filePath, file.createdTime.toISOString());
             }
             if (options.verbose) {
                 options.logger.debug('downloading newer: ', oldFilePath);
@@ -267,6 +266,7 @@ function visitDirectory(drive, fileId, folderPath, options, callback) {
                 spaces: 'drive',
                 fields: 'nextPageToken, files(id, name, parents, mimeType, createdTime, modifiedTime, shortcutDetails)',
                 q: `'${fileId}' in parents`,
+                orderBy: `createdTime ${options.timestampReplacingFiles ? "asc" : "desc"}`,
                 pageSize: 200
             });
             // Needed to get further results
