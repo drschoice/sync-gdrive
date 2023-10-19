@@ -130,7 +130,7 @@ function addTimestampToFilePath(filePath, timestamp) {
     const ext = parsed.ext || '';
     const filename = parsed.name;
     timestamp = timestamp || Date.now();
-    const newFilename = `${filename}_${timestamp}${ext}`;
+    const newFilename = `${filename}__syncgdriveadded--${timestamp}${ext}`;
     return path_1.default.format(Object.assign(Object.assign({}, parsed), { base: newFilename }));
 }
 function downloadFile(drive, file, destFolder, options = {}) {
@@ -139,7 +139,7 @@ function downloadFile(drive, file, destFolder, options = {}) {
         let oldFilePath = filePath;
         const newerResults = yield isGDriveFileNewer(file, filePath);
         if (newerResults === null || newerResults === void 0 ? void 0 : newerResults.newer) {
-            if (options.timestampReplacingFiles && (newerResults === null || newerResults === void 0 ? void 0 : newerResults.stats)) {
+            if (options.timestampReplacingFiles && (newerResults === null || newerResults === void 0 ? void 0 : newerResults.stats) && !/__syncgdriveadded--/.test(filePath)) {
                 filePath = addTimestampToFilePath(filePath, timeAsSeconds(file.createdTime));
             }
             if (options.verbose) {

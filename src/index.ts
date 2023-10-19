@@ -134,7 +134,7 @@ function addTimestampToFilePath(filePath: string, timestamp: any) {
     const ext = parsed.ext || '';
     const filename = parsed.name;
     timestamp = timestamp || Date.now();
-    const newFilename = `${filename}_${timestamp}${ext}`;
+    const newFilename = `${filename}__syncgdriveadded--${timestamp}${ext}`;
     return path.format({
       ...parsed,
       base: newFilename
@@ -147,7 +147,7 @@ async function downloadFile (drive: Drive, file, destFolder: string, options: IO
     const newerResults = await isGDriveFileNewer(file, filePath)
 
     if (newerResults?.newer) {
-        if (options.timestampReplacingFiles && newerResults?.stats) {
+        if (options.timestampReplacingFiles && newerResults?.stats && !/__syncgdriveadded--/.test(filePath)) {
             filePath = addTimestampToFilePath(filePath, timeAsSeconds(file.createdTime))
         }
         if (options.verbose) {
