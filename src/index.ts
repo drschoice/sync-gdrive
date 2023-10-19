@@ -119,21 +119,39 @@ async function isGDriveFileNewer(gDriveFile: File, filePath: string) {
         const stats = await fs.stat(filePath);
         const fsModifiedTime = timeAsSeconds(stats.mtime);
         const driveModifiedTime = timeAsSeconds(gDriveFile.modifiedTime);
-        return (driveModifiedTime > fsModifiedTime);
+        return  { stats, newer: (driveModifiedTime > fsModifiedTime) };
     } catch (err) {
         if (err.code === 'ENOENT') {
-            return true;
+            return { newer: true };
         } else {
             throw err;
         }
     }
 }
 
+function addTimestampToFilePath(filePath: string, timestamp: any) {
+    const parsed = path.parse(filePath);
+    const ext = parsed.ext || '';
+    const filename = parsed.name;
+    timestamp = timestamp || Date.now();
+    const newFilename = `${filename}_${timestamp}${ext}`;
+    return path.format({
+      ...parsed,
+      base: newFilename
+    });
+}
+
 async function downloadFile (drive: Drive, file, destFolder: string, options: IOptions = {}) {
-    const filePath = path.join(destFolder, sanitiseFilename(file.name));
-    if (await isGDriveFileNewer(file, filePath)) {
+    let filePath = path.join(destFolder, sanitiseFilename(file.name));
+    let oldFilePath = filePath;
+    const newerResults = await isGDriveFileNewer(file, filePath)
+
+    if (newerResults?.newer) {
+        if (options.timestampReplacingFiles && newerResults?.stats) {
+            filePath = addTimestampToFilePath(filePath, timeAsSeconds(file.createdTime))
+        }
         if (options.verbose) {
-            options.logger.debug('downloading newer: ', filePath);
+            options.logger.debug('downloading newer: ', oldFilePath);
             options.logger.debug('creating file: ', filePath);
         }
         const dest = createWriteStream(filePath);
@@ -179,8 +197,9 @@ async function downloadFile (drive: Drive, file, destFolder: string, options: IO
 async function exportFile (drive: Drive, file: File, destFolder: string, mimeType: string, suffix: string, options: IOptions = {}): Promise<ISyncState> {
     const name = sanitiseFilename(file.name) + suffix;
     const filePath = path.join(destFolder, name);
+    const newerResults = await isGDriveFileNewer(file, filePath)
 
-    if (await isGDriveFileNewer(file, filePath)) {
+    if (newerResults?.newer) {
         if (options.verbose) {
             options.logger.debug('downloading newer: ', filePath);
             options.logger.debug('exporting to file: ', filePath);

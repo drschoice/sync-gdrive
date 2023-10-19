@@ -113,11 +113,11 @@ function isGDriveFileNewer(gDriveFile, filePath) {
             const stats = yield fs_1.promises.stat(filePath);
             const fsModifiedTime = timeAsSeconds(stats.mtime);
             const driveModifiedTime = timeAsSeconds(gDriveFile.modifiedTime);
-            return (driveModifiedTime > fsModifiedTime);
+            return { stats, newer: (driveModifiedTime > fsModifiedTime) };
         }
         catch (err) {
             if (err.code === 'ENOENT') {
-                return true;
+                return { newer: true };
             }
             else {
                 throw err;
@@ -125,12 +125,25 @@ function isGDriveFileNewer(gDriveFile, filePath) {
         }
     });
 }
+function addTimestampToFilePath(filePath, timestamp) {
+    const parsed = path_1.default.parse(filePath);
+    const ext = parsed.ext || '';
+    const filename = parsed.name;
+    timestamp = timestamp || Date.now();
+    const newFilename = `${filename}_${timestamp}${ext}`;
+    return path_1.default.format(Object.assign(Object.assign({}, parsed), { base: newFilename }));
+}
 function downloadFile(drive, file, destFolder, options = {}) {
     return __awaiter(this, void 0, void 0, function* () {
-        const filePath = path_1.default.join(destFolder, sanitiseFilename(file.name));
-        if (yield isGDriveFileNewer(file, filePath)) {
+        let filePath = path_1.default.join(destFolder, sanitiseFilename(file.name));
+        let oldFilePath = filePath;
+        const newerResults = yield isGDriveFileNewer(file, filePath);
+        if (newerResults === null || newerResults === void 0 ? void 0 : newerResults.newer) {
+            if (options.timestampReplacingFiles && (newerResults === null || newerResults === void 0 ? void 0 : newerResults.stats)) {
+                filePath = addTimestampToFilePath(filePath, timeAsSeconds(file.createdTime));
+            }
             if (options.verbose) {
-                options.logger.debug('downloading newer: ', filePath);
+                options.logger.debug('downloading newer: ', oldFilePath);
                 options.logger.debug('creating file: ', filePath);
             }
             const dest = (0, fs_1.createWriteStream)(filePath);
@@ -169,7 +182,8 @@ function exportFile(drive, file, destFolder, mimeType, suffix, options = {}) {
     return __awaiter(this, void 0, void 0, function* () {
         const name = sanitiseFilename(file.name) + suffix;
         const filePath = path_1.default.join(destFolder, name);
-        if (yield isGDriveFileNewer(file, filePath)) {
+        const newerResults = yield isGDriveFileNewer(file, filePath);
+        if (newerResults === null || newerResults === void 0 ? void 0 : newerResults.newer) {
             if (options.verbose) {
                 options.logger.debug('downloading newer: ', filePath);
                 options.logger.debug('exporting to file: ', filePath);

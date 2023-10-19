@@ -11,6 +11,7 @@ interface IOptions {
     sleepTime?: number,
     supportsAllDrives?: boolean,
     includeItemsFromAllDrives?: boolean,
+    timestampReplacingFiles?: boolean,
 }
 
 export default IOptions;
